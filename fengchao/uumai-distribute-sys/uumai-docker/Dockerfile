@@ -1,0 +1,28 @@
+# This is a comment
+#FROM ubuntu:latest
+FROM java:latest
+
+MAINTAINER Uumai Rock
+
+RUN  mkdir -p /root/uumai
+RUN  mkdir -p /root/uumai/licenses
+
+ADD build /root/uumai/build
+
+RUN  mkdir -p /root/uumai/logs
+
+ADD licenses/pubring.gpg    /root/uumai/licenses/pubring.gpg
+ADD licenses/uumai.license   /root/uumai/licenses/uumai.license
+
+#RUN chmod +x /root/uumai/build/fengchao/*.sh
+
+WORKDIR /root/uumai/build/fengchao
+
+CMD ["/bin/bash" , "./uumai.sh" , "com.uumai.crawer2.SlavesRuner"]
+
+#CMD ./uumai.sh com.uumai.crawer2.SlavesRuner
+
+#CMD ["./uumaiQuartz.sh" "com.uumai.crawer2.SlavesRuner"]
+
+
+#ENTRYPOINT /root/uumai/build/fengchao/uumaiQuartz.sh com.uumai.crawer2.SlavesRuner uumai.logexit

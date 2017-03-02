@@ -1,0 +1,105 @@
+=======in office============
+-----------start docker server-----------
+sudo HTTP_PROXY=http://cn-proxy.jp.oracle.com:80 docker daemon --label label_name=$(hostname) -H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock --selinux-enabled --insecure-registry 10.182.111.82:5000
+
+
+-----start reposity------------
+sudo docker run -d --restart=always  -e GUNICORN_OPTS=["--preload"] -p 5000:5000 registry
+
+start  swarm server:
+echo 10.182.111.82:2375  >> /tmp/my_cluster
+echo 10.182.111.143:2375 >> /tmp/my_cluster
+echo 10.182.111.132:2375 >> /tmp/my_cluster
+echo 10.182.111.139:2375 >> /tmp/my_cluster
+echo 10.182.111.112:2375 >> /tmp/my_cluster
+
+sudo docker run -d -p 2376:2375  --restart=always  -v /tmp/my_cluster:/tmp/my_cluster swarm manage --strategy spread file:///tmp/my_cluster
+
+
+--zookeeper---
+sudo docker run -d -p 2376:2375  --restart=always  -v /tmp/my_cluster:/tmp/my_cluster swarm manage --strategy spread zk://rock-cdc-server:2181/swarm
+
+---check detail---
+sudo docker -H tcp://10.182.111.82:2376 info
+
+
+-----start docker client-------------------
+sudo  docker daemon --label label_name=$(hostname) -H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock --selinux-enabled --insecure-registry 10.182.111.82:5000
+
+sudo docker run -d swarm join zk://rock-cdc-server:2181/swarm --addr=10.182.111.143:2375
+
+===========================start uumai =====================================
+-------build uumai--------
+cd /home/rock/kanxg/Dropbox/mysourcecode/uumai/bitbucket/
+docker build -t 10.182.111.82:5000/uumai -f ./Dockerfile  ./
+
+
+-------build uumaiin pi--------
+docker build -t 10.182.111.82:5000/uumai_arm -f ./Dockerfile.arm  ./
+
+
+sudo docker push 10.182.111.82:5000/uumai_arm
+
+
+sudo curl http://10.182.111.82:5000/v1/search
+ 
+-------start uumai--------
+sudo docker -H tcp://10.182.111.82:2376  run  -t -i  -d -m 300m -h uumaipi01  --add-host rock-cdc-server:10.182.111.82  --add-host uumai_zk_server:10.182.111.82 10.182.111.82:5000/uumai
+
+
+
+special a node
+sudo docker -H tcp://10.182.111.82:2376  run  -t -i  -d -m 200m  -h uumaipi02 -e constraint:label_name==uumaipi02  --add-host rock-cdc-server:10.182.111.82  --add-host uumai_zk_server:10.182.111.82    10.182.111.82:5000/uumai_arm
+
+
+sudo docker -H 10.182.111.82:2376 ps
+
+
+sudo docker -H tcp://10.182.111.82:2376  stop uumai
+
+ 
+
+
+------------run local------------
+sudo docker run -t -i   --add-host rock-cdc-server:10.182.111.82  --add-host uumai_zk_server:10.182.111.82 uumai /bin/bash
+
+--backgrond---
+sudo docker run -t -i  -d -h uumaipi1 --add-host rock-cdc-server:10.182.111.82  --add-host uumai_zk_server:10.182.111.82 uumai
+
+-- check log----
+sudo docker logs -f 6b1b61ca5808
+
+---stop------------
+
+sudo docker stop 6b1b61ca5808
+
+--front---
+sudo docker run -t -i  -h uumaipi1 --add-host rock-cdc-server:10.182.111.82  --add-host uumai_zk_server:10.182.111.82 uumai  /bin/bash
+
+
+
+
+
+
+=======in home============
+sudo docker daemon --label label_name=$(hostname) -H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock --selinux-enabled --insecure-registry 192.168.0.180:5000
+
+
+
+echo 192.168.0.180:2375 >> /tmp/my_cluster
+echo 192.168.0.106:2375 >> /tmp/my_cluster
+
+
+sudo docker run --rm -v /tmp/my_cluster:/tmp/my_cluster swarm list file:///tmp/my_cluster
+
+
+sudo docker -H tcp://192.168.0.180:2376 info
+
+
+sudo docker tag 0b3c0aef4ac2 192.168.0.180:5000/uumai
+sudo docker push 192.168.0.180:5000/uumai
+
+
+sudo docker -H tcp://192.168.0.180:2376  run  -t -i  -d -m 256m -h uumaipi1  --add-host rock-cdc-server:192.168.0.180  --add-host uumai_zk_server:192.168.0.180 192.168.0.180:5000/uumai
+
+sudo docker -H tcp://192.168.0.180:2376  run  -t -i  -d -h uumaipi1 -e constraint:label_name==rock-oracle --add-host rock-cdc-server:192.168.0.180  --add-host uumai_zk_server:192.168.0.180 192.168.0.180:5000/uumai
